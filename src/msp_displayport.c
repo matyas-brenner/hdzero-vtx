@@ -26,9 +26,11 @@ uint8_t fc_lock = 0;
 uint8_t disp_mode; // DISPLAY_OSD | DISPLAY_CMS;
 uint8_t osd_ready;
 
-uint8_t fc_variant[4] = {0xff, 0xff, 0xff, 0xff};
+// uint8_t fc_variant[4] = {0xff, 0xff, 0xff, 0xff};
+uint8_t fc_variant[4] = {0x42, 0x54, 0x46, 0x4c}; // BTFL
 uint8_t fontType = 0x00;
-uint8_t resolution = SD_3016;
+// uint8_t resolution = SD_3016;
+uint8_t resolution = HD_5018;
 uint8_t resolution_last = HD_5018;
 
 uint8_t msp_rx_buf[64]; // from FC responding status|variant|rc commands
@@ -203,6 +205,8 @@ void msp_task() {
     set_vtx_param();
 }
 
+// protocol: https://stackoverflow.com/a/42877002/4640779
+// message types: https://github.com/betaflight/betaflight/blob/master/src/main/msp/msp_protocol.h
 uint8_t msp_read_one_frame() {
     static uint8_t state = MSP_HEADER_START;
     static uint8_t cur_cmd = CUR_OTHERS;
@@ -295,7 +299,7 @@ uint8_t msp_read_one_frame() {
             break;
 
         case MSP_CRC1:
-            if (rx == crc) {
+            if (rx == crc) { // check if message CRC checks
                 msp_lst_rcv_sec = seconds;
                 if (cur_cmd == CUR_STATUS)
                     parse_status();
@@ -324,8 +328,10 @@ uint8_t msp_read_one_frame() {
                 }
             }
 #ifdef _DEBUG_DISPLAYPORT
-            else
+            else {
+                // CRC failed
                 _outchar('^');
+            }
 #endif
             state = MSP_HEADER_START;
             break;
@@ -694,9 +700,9 @@ void msp_send_header(uint8_t dl) {
     if (dl) {
         WAIT(20);
     }
-    CMS_tx(0x24);
-    CMS_tx(0x4d);
-    CMS_tx(0x3c);
+    CMS_tx(0x24); //$
+    CMS_tx(0x4d); // M
+    CMS_tx(0x3c); //<
 }
 
 void msp_cmd_tx() // send 3 commands to FC
@@ -827,8 +833,8 @@ void parse_variant() {
 
     fc_lock |= FC_VARIANT_LOCK;
 
-    for (i = 0; i < 4; i++)
-        fc_variant[i] = msp_rx_buf[i];
+    /*for (i = 0; i < 4; i++)
+        fc_variant[i] = msp_rx_buf[i];*/
 }
 
 void parse_rc() {
@@ -1171,7 +1177,7 @@ uint8_t parse_displayport(uint8_t len) {
                 return 1;
             } else if (msp_rx_buf[0] == SUBCMD_CONFIG) {
                 fontType = msp_rx_buf[1];
-                resolution = msp_rx_buf[2];
+                // resolution = msp_rx_buf[2];
 
                 if (resolution == HD_5018)
                     osd_menu_offset = 8;
